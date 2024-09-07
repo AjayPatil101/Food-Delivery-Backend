@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 dotenv.config();
 const stripe = new Stripe(process.env.stripe_Key)
 const placeOrder = async (req, res) => {
-    const frontend_url = "https://leafy-baklava-be205c.netlify.app";
+    const frontend_url = process.env.frontend_url;
     try {
         const newOrder = new orderModel({
             userId: req.body.userId,
@@ -41,13 +41,14 @@ const placeOrder = async (req, res) => {
         const session = await stripe.checkout.sessions.create({
             line_items: line_items,
             mode: 'payment',
-            success_url: `${frontend_url}/verify?success=true&orderId=${newOrder._id}`,
-            cancel_url: `${frontend_url}/verify?success=false&orderId=${newOrder._id}`,
+            success_url: `${frontend_url}/verifyTrue`,
+            cancel_url: `${frontend_url}/verifyFalse`,
         });
 
         res.json({
             success: true,
-            session_url: session.url
+            session_url: session.url,
+            orderId:newOrder._id
         });
     } catch (error) {
         console.log(error);
