@@ -8,6 +8,7 @@ import bodyParser from  'body-parser';
 import userRouter from './Routes/UserRoute.js';
 import cartRouter from './Routes/CartRoute.js';
 import orderRouter from './Routes/OrderRoute.js';
+import couponRouter from './Routes/CouponRouter.js';
 
 //app config
 const app = express();
@@ -30,6 +31,7 @@ app.use("/image",express.static("Uploads"))
 app.use("/api/user",userRouter)
 app.use("/api/cart",cartRouter)
 app.use("/api/order",orderRouter)
+app.use("/api/coupon",couponRouter)
 
  
 connectDB();

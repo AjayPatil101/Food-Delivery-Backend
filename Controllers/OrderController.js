@@ -1,5 +1,6 @@
 import orderModel from "../Models/OrderModel.js";
 import userModel from "../Models/UserModel.js";
+import CouponModel from "../Models/CouponModel.js";
 import Stripe from "stripe"
 import dotenv from "dotenv";
 dotenv.config();
@@ -11,7 +12,9 @@ const placeOrder = async (req, res) => {
             userId: req.body.userId,
             items: req.body.items,
             amount: req.body.amount,
-            address: req.body.address
+            address: req.body.address,
+            couponCode: req.body.couponCode,
+            couponAmount: req.body.couponAmount
         });
         await newOrder.save();
         await userModel.findByIdAndUpdate(req.body.userId, { cartData: {} });
@@ -19,7 +22,7 @@ const placeOrder = async (req, res) => {
         const line_items = req.body.items.map((item) => ({
             price_data: {
                 currency: "inr",
-                product_data: {  // Corrected the typo here
+                product_data: { 
                     name: item.name
                 },
                 unit_amount: item.price * 100 * 83
@@ -30,7 +33,7 @@ const placeOrder = async (req, res) => {
         line_items.push({
             price_data: {
                 currency: "inr",
-                product_data: {  // Corrected the typo here
+                product_data: { 
                     name: "Delivery Charges"
                 },
                 unit_amount: 2 * 100 * 83
@@ -60,11 +63,17 @@ const placeOrder = async (req, res) => {
 }
 
 const verifyOrder = async (req,res)=>{
-    const {success,orderId}=req.body;
+    const {success,orderId,userId,couponCode}=req.body;
+    
     try {
         
         if(success){
             await orderModel.findByIdAndUpdate(orderId,{payment:true});
+            await CouponModel.findOneAndUpdate(
+                {userid: userId,couponCode: couponCode },
+                { status: "used" },
+                { new: true }
+            );
             res.json({
                 success: true,
                  message: "Paid"
