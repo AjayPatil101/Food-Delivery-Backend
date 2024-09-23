@@ -153,7 +153,7 @@ const getCategoryCount = async (req, res) => {
       "Sandwich",
       "Noodles",
       "Salad",
-      "Desserts",
+      "Deserts",
     ];
 
     // Get the total sales amount (quantity * price) for each category
