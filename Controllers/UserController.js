@@ -70,8 +70,7 @@ const changeRole =async (req,res)=>{
 // Retrieve user by ID
 const getRole = async (req, res) => {
     try {
-        const user = await userModel.findById(req.params.userId); 
-        
+        const user = await userModel.findById(req.params.userId).select('-password');        
         res.json({
             success: true,
             data: user
