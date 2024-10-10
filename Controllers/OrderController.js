@@ -4,22 +4,24 @@ import CouponModel from "../Models/CouponModel.js";
 import Stripe from "stripe";
 import dotenv from "dotenv";
 dotenv.config();
+
+import twilio from "twilio";
+
 const stripe = new Stripe(process.env.stripe_Key);
 const placeOrder = async (req, res) => {
   const frontend_url = process.env.frontend_url;
   try {
+    const { userId, items, amount, address, couponCode } = req.body;
     const newOrder = new orderModel({
-      userId: req.body.userId,
-      items: req.body.items,
-      amount: req.body.amount,
-      address: req.body.address,
-      couponCode: req.body.couponCode,
-      couponAmount: req.body.couponAmount,
+      userId,
+      items,
+      amount,
+      address,
+      couponCode,  
     });
     await newOrder.save();
-    await userModel.findByIdAndUpdate(req.body.userId, { cartData: {} });
-
-    const line_items = req.body.items.map((item) => ({
+    await userModel.findByIdAndUpdate(userId, { cartData: {} });
+    const line_items = items.map((item) => ({
       price_data: {
         currency: "inr",
         product_data: {
@@ -41,11 +43,31 @@ const placeOrder = async (req, res) => {
       quantity: 1,
     });
 
+    const discounts = [];
+    if (couponCode) {
+      try {
+        const coupon = await stripe.coupons.retrieve(couponCode);
+
+        if (coupon) {
+          discounts.push({
+            coupon: couponCode,
+          });
+        }
+      } catch (error) {
+        console.error("Invalid coupon code:", error);
+        return res.status(400).json({
+          success: false,
+          message: "Invalid or expired coupon code",
+        });
+      }
+    }
+
     const session = await stripe.checkout.sessions.create({
       line_items: line_items,
       mode: "payment",
       success_url: `${frontend_url}/verify?success=true&orderId=${newOrder._id}`,
       cancel_url: `${frontend_url}/verify?success=false&orderId=${newOrder._id}`,
+      discounts: discounts, 
     });
 
     res.json({
@@ -55,9 +77,9 @@ const placeOrder = async (req, res) => {
     });
   } catch (error) {
     console.log(error);
-    res.json({
+    res.status(500).json({
       success: false,
-      message: "Error",
+      message: "Error placing order",
     });
   }
 };
@@ -67,12 +89,19 @@ const verifyOrder = async (req, res) => {
 
   try {
     if (success) {
-      await orderModel.findByIdAndUpdate(orderId, { payment: true });
+      const order = await orderModel.findByIdAndUpdate(orderId, { payment: true });
+
       await CouponModel.findOneAndUpdate(
         { userid: userId, couponCode: couponCode },
         { status: "used" },
         { new: true }
       );
+      const customerPhone = order.address.phone; // Replace with actual customer phone field
+    const restaurantName = order.address.firstName+" "+ order.address.lastName; // Replace with actual restaurant name field
+    const deliveryPerson = order.address.firstName +" "+order.address.lastName; // Replace with actual delivery person name if available
+
+    // Send an SMS based on the updated status
+    sendOrderUpdate('Food Processing', customerPhone, restaurantName, deliveryPerson);
       res.json({
         success: true,
         message: "Paid",
@@ -124,12 +153,63 @@ const listOrders = async (req, res) => {
     });
   }
 };
+// Twilio setup
+const accountSid = process.env.Account_SID ;
+const authToken = process.env.Auth_Token;
+const client = twilio(accountSid, authToken);
 
+function sendOrderUpdate(status, customerPhone, restaurantName, deliveryPerson = '') {
+  let messageBody = '';
+  let FrontendUrl = process.env.FrondendUrl; 
+
+  switch (status) {
+    case 'Food Processing':
+      messageBody = `Your order from ${restaurantName} is packed and ready! 🍱 We will ship it soon. Stay tuned! Track your order: ${FrontendUrl}/myorders`;
+      break;
+    case 'Out for delivery':
+      messageBody = `Good news! 🎉 Your order from ${restaurantName} is on the way 🚴‍♂️. Your delivery executive, ${deliveryPerson}, will reach you soon. Track your order: ${FrontendUrl}/myorders`;
+      break;
+    case 'Delivered':
+      messageBody = `Yay! 🎉 Your order from ${restaurantName} has been delivered. Enjoy your meal! 🍽️ Thanks for choosing us!`;
+      break;
+    case 'Food PickUp':
+      messageBody = `Your order from ${restaurantName} is ready for pickup! Please come by soon to collect it. Track your order: ${FrontendUrl}/myorders`;
+      break;
+    case 'Unavailable':
+      messageBody = `Unfortunately, your order from ${restaurantName} is unavailable at the moment. We apologize for the inconvenience.`;
+      break;
+    default:
+      console.log('Unknown status');
+      return;
+  }
+
+  // Send the SMS
+  client.messages
+    .create({
+      body: messageBody,
+      from: '+19253926514', // Your Twilio number
+      to: `+91${customerPhone}`
+    })
+    .then(message => console.log(`Message sent: ${message.sid}`))
+    .catch(error => console.error('Error sending message:', error));
+}
+
+
+// Updated updateStatus function
 const updateStatus = async (req, res) => {
   try {
     const order = await orderModel.findByIdAndUpdate(req.body.orderId, {
       status: req.body.status,
     });
+
+    // Assuming you have these details stored in the `order` object or can fetch them
+    const customerPhone = order.address.phone; // Replace with actual customer phone field
+    const restaurantName = order.address.firstName+" "+ order.address.lastName; // Replace with actual restaurant name field
+    const deliveryPerson = order.address.firstName +" "+ order.address.lastName;// Replace with actual delivery person name if available
+
+    // Send an SMS based on the updated status
+    sendOrderUpdate(req.body.status, customerPhone, restaurantName, deliveryPerson);
+
     res.json({
       success: true,
       message: "Status Updated",
@@ -142,6 +222,7 @@ const updateStatus = async (req, res) => {
     });
   }
 };
+
 const getCategoryCount = async (req, res) => {
   try {
     // Define all possible categories

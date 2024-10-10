@@ -26,7 +26,8 @@ const loginUser =async (req,res)=>{
             success:true,
             message: "User Longin successfully",
             token:token,
-            userId:user._id
+            userId:user._id,
+            role: user.role
         })
     } catch (error) {
         res.json({
@@ -35,6 +36,54 @@ const loginUser =async (req,res)=>{
         });
     }
 }
+//Get All User
+const getUser =async (req,res)=>{
+    try {
+        const user = await userModel.find({});
+        res.json({
+            success:true,
+            data: user
+        })
+    } catch (error) {
+        res.json({
+            success:false,
+            message: "Error"
+        });
+    }
+}
+//Change Role
+const changeRole =async (req,res)=>{
+    try {
+        const user = await userModel.findByIdAndUpdate(req.body.userId,{role:req.body.role});
+       
+        res.json({
+            success:true,
+            data: user
+        })
+    } catch (error) {
+        res.json({
+            success:false,
+            message: "Error"
+        });
+    }
+}
+// Retrieve user by ID
+const getRole = async (req, res) => {
+    try {
+        const user = await userModel.findById(req.params.userId); 
+        
+        res.json({
+            success: true,
+            data: user
+        });
+    } catch (error) {
+        res.json({
+            success: false,
+            message: "Error fetching user role"
+        });
+    }
+}
+
 
 const createToken = (id)=>{
     return jwt.sign({id},process.env.secretKey)
@@ -129,5 +178,8 @@ const registerUser = async (req, res) => {
 
 export {
     registerUser,
-    loginUser
+    loginUser,
+    getUser,
+    changeRole,
+    getRole
 }
