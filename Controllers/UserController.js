@@ -1,4 +1,5 @@
 import userModel from "../Models/UserModel.js";
+import couponModel from "../Models/CouponModel.js";
 import jwt from "jsonwebtoken"
 import bcrypt from "bcrypt"
 import validator from "validator"
@@ -155,19 +156,20 @@ const registerUser = async (req, res) => {
                 status: "active"
             }
         ];
-
+        
         // Save coupons to the database
         await couponModel.insertMany(coupons);
 
         // Create and return token
         const token = createToken(user._id);
+        
         res.json({
             success: true,
             message: "User added successfully",
             token: token
         });
 
-    } catch (error) {
+    } catch (error) {        
         res.json({
             success: false,
             message: "Error"

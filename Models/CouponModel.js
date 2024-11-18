@@ -8,7 +8,7 @@ const couponSchema = new mongoose.Schema({
   couponCode: {
     type: String,
     required: true,
-    unique: true
+    // unique: true
   },
   couponAmount: {
     type: Number,
@@ -31,5 +31,5 @@ const couponSchema = new mongoose.Schema({
   }
 });
 
-const Coupon = mongoose.model('Coupon', couponSchema);
+const Coupon = mongoose.models.coupons || mongoose.model('Coupon', couponSchema);
 export default Coupon;
